@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:mulerequester="http://www.mulesoft.org/schema/mule/mulerequester" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:pop3s="http://www.mulesoft.org/schema/mule/pop3s" xmlns:pop3="http://www.mulesoft.org/schema/mule/pop3" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/pop3 http://www.mulesoft.org/schema/mule/pop3/current/mule-pop3.xsd
+http://www.mulesoft.org/schema/mule/pop3s http://www.mulesoft.org/schema/mule/pop3s/current/mule-pop3s.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/mulerequester http://www.mulesoft.org/schema/mule/mulerequester/current/mule-mulerequester.xsd">
+    <pop3s:connector name="POP3" validateConnections="true" checkFrequency="6000" doc:name="POP3">
+        <pop3s:tls-client path="C:\Program Files\Java\jdk1.8.0_60\jre\lib\security\cacerts" storePassword="changeit"/>
+        <pop3s:tls-trust-store path="C:\Program Files\Java\jdk1.8.0_60\jre\lib\security\cacerts" storePassword="changeit"/>
+    </pop3s:connector>
+    <file:connector name="File" autoDelete="true" streaming="true" validateConnections="true" doc:name="File"/>
+    <http:request-config name="HTTP_Request_Configuration" host="localhost" port="8081" basePath="/" doc:name="HTTP Request Configuration"/>
+    <flow name="s_mailFlow_MailHandling">
+        <pop3s:inbound-endpoint host="pop.gmail.com"  user="servicenowuktesting" password="2c4718afb7"  responseTimeout="10000" doc:name="POP3" port="995" connector-ref="POP3"/>
+        <logger message="#[message +  &quot;\n &lt;---&gt;&quot;+ message.id]" level="INFO" doc:name="Message"/>
+        <set-variable variableName="mail-id" value="#[message.id]" doc:name="Variable"/>
+        <expression-transformer doc:name="Expression">
+            <return-argument evaluator="attachments-list" expression="*" optional="true"/>
+        </expression-transformer>
+		<collection-splitter doc:name="Collection Splitter"/>
+        <choice doc:name="Choice">
+            <when expression="#[groovy:payload.name != null]">
+                <logger message="&quot;This is an attachment&quot;" level="INFO" doc:name="Attachment"/>
+                <file:outbound-endpoint path="/tmp/receivedEmail/csv" outputPattern="#[flowVars.'mail-id'].#[groovy:payload.name]" responseTimeout="10000" doc:name="Writing attachment"/>
+            </when>
+            <otherwise>
+                <logger message="&quot;This is an Email&quot;" level="INFO" doc:name="Email"/>
+                <file:outbound-endpoint path="/tmp/receivedEmail/email" outputPattern="#[flowVars.'mail-id'].#[message.inboundProperties.from].email" responseTimeout="10000" doc:name="Writing email file"/>
+            </otherwise>
+        </choice>
+
+    </flow>
+    <flow name="s_mailFlow_FileHandling">
+        <file:inbound-endpoint path="/tmp/receivedEmail/email" moveToDirectory="/tmp/receivedEmail.old" connector-ref="File" responseTimeout="10000" doc:name="Reading email file">
+            <file:filename-regex-filter pattern=".*\.email" caseSensitive="true"/>
+        </file:inbound-endpoint>
+        <set-variable variableName="fileName" value="#[message.inboundProperties.originalFilename]" doc:name="Get Filename" encoding="UTF-8"/>
+        <set-variable variableName="sendFrom" value="#[flowVars['fileName'].substring(0, flowVars['fileName'].lastIndexOf('.'))]" doc:name="Strip .email" encoding="UTF-8"/>
+        <set-variable variableName="emailId" value="#[flowVars['sendFrom'].substring(0, flowVars['sendFrom'].indexOf('.'))]" doc:name="Set email-id" />
+        <set-variable variableName="sender" value="#[flowVars['sendFrom'].substring(flowVars['sendFrom'].indexOf('.') + 1,flowVars['sendFrom'].length())]" doc:name="Set sender"/>
+        <remove-variable variableName="fileName" doc:name="Clean-Up: fileName"/>
+        <remove-variable variableName="sendFrom" doc:name="Clean-Up: sendFrom"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	sender: flowVars.sender,
+	fileId: flowVars.emailId,
+	body: lookup("s_mail_ReadAttachments",{id:flowVars.emailId})
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="&quot;Final Log: &quot; #[message.payloadAs(java.lang.String)]" level="INFO" doc:name="Final Logger"/>
+        <http:request config-ref="HTTP_Request_Configuration" path="/incoming" method="POST" doc:name="HTTP"/>
+    </flow>
+    <flow name="s_mail_ReadAttachments">
+        <logger message="&quot;Start with subflow&quot; #[payload]" level="INFO" doc:name="Logger"/>
+        <set-variable variableName="ReadFile" value="/tmp/receivedEmail/csv/#[payload.id].*.csv" doc:name="Variable"/>
+        <set-payload value="#[flowVars.ReadFile]" doc:name="Set Payload"/>
+        <logger message="#[flowVars.ReadFile]" level="INFO" doc:name="Logger"/>
+        <custom-transformer returnClass="java.lang.String" ignoreBadInput="true" mimeType="application/csv" class="com.mulesoft.services.eu.FileReader" doc:name="Java" encoding="UTF-8"/>
+
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%input payload text/csv
+%output application/json
+---
+body: payload]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="#[message.payloadAs(String)]" level="INFO" doc:name="Logger"/>
+    </flow>
+
+</mule>
