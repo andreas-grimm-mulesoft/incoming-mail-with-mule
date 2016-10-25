@@ -20,7 +20,7 @@ http://www.mulesoft.org/schema/mule/mulerequester http://www.mulesoft.org/schema
         <pop3s:tls-trust-store path="C:\Program Files\Java\jdk1.8.0_60\jre\lib\security\cacerts" storePassword="changeit"/>
     </pop3s:connector>
     <file:connector name="File" autoDelete="true" streaming="true" validateConnections="true" doc:name="File"/>
-    <http:request-config name="HTTP_Request_Configuration" host="localhost" port="8081" basePath="/" doc:name="HTTP Request Configuration"/>
+    <http:request-config name="HTTP_Request_Configuration" host="localhost" port="8081"  doc:name="HTTP Request Configuration"/>
     <flow name="s_mailFlow_MailHandling">
         <pop3s:inbound-endpoint host="pop.gmail.com"  user="servicenowuktesting" password="2c4718afb7"  responseTimeout="10000" doc:name="POP3" port="995" connector-ref="POP3"/>
         <logger message="#[message +  &quot;\n &lt;---&gt;&quot;+ message.id]" level="INFO" doc:name="Message"/>

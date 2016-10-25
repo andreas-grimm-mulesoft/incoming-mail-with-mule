@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  	xmlns:mock="http://www.mulesoft.org/schema/mule/mock" 
+	xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+	xmlns="http://www.mulesoft.org/schema/mule/core" 
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/mock http://www.mulesoft.org/schema/mule/mock/current/mule-mock.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd">
+    <munit:config name="munit" doc:name="MUnit configuration"/>
+    
+    <spring:beans>
+        <spring:import resource="classpath:s_mail.xml"/>
+    </spring:beans>
+    
+    <munit:test name="testReadAttachments" description="Test the reading of the attachment files">
+    	<munit:set payload="#[{'id':'60767ff0-99c3-11e6-8715-a0999b076747'}]" doc:name="Set Message"/>
+    	<flow-ref name="s_mail_ReadAttachments" doc:name="s_mail_ReadAttachments"/>
+    	<munit:assert-not-null message="Payload not correctly loaded" doc:name="Assert Not Null Payload"/>
+    </munit:test>
+</mule>
