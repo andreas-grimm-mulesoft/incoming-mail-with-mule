@@ -25,6 +25,7 @@ http://www.mulesoft.org/schema/mule/mulerequester http://www.mulesoft.org/schema
         <pop3s:inbound-endpoint host="pop.gmail.com"  user="servicenowuktesting" password="2c4718afb7"  responseTimeout="10000" doc:name="POP3" port="995" connector-ref="POP3"/>
         <logger message="#[message +  &quot;\n &lt;---&gt;&quot;+ message.id]" level="INFO" doc:name="Message"/>
         <set-variable variableName="mail-id" value="#[message.id]" doc:name="Variable"/>
+        <set-variable variableName="sender-id" value="#[message.inboundProperties.from.substring(0, message.inboundProperties.from.indexOf(&quot; &quot;))]" doc:name="Variable"/>
         <expression-transformer doc:name="Expression">
             <return-argument evaluator="attachments-list" expression="*" optional="true"/>
         </expression-transformer>
@@ -36,7 +37,7 @@ http://www.mulesoft.org/schema/mule/mulerequester http://www.mulesoft.org/schema
             </when>
             <otherwise>
                 <logger message="&quot;This is an Email&quot;" level="INFO" doc:name="Email"/>
-                <file:outbound-endpoint path="/tmp/receivedEmail/email" outputPattern="#[flowVars.'mail-id'].#[message.inboundProperties.from].email" responseTimeout="10000" doc:name="Writing email file"/>
+                <file:outbound-endpoint path="/tmp/receivedEmail/email" outputPattern="#[flowVars.'mail-id'].#[flowVars.'sender-id'].email" responseTimeout="10000" doc:name="Writing email file"/>
             </otherwise>
         </choice>
 
